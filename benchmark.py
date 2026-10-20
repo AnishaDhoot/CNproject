@@ -109,7 +109,14 @@ def average(runs):
         if isinstance(runs[0][k], float) or k in ("retransmits", "duplicates", "pub_retries",
                                                   "broker_retransmits", "dup_pub"):
             out[k] = statistics.mean(r[k] for r in runs)
+    for k in list(out):
+        if k.endswith("_sd") or k in ("qos", "loss", "subs", "payload", "msgs"):
+            continue
+        if isinstance(runs[0].get(k), (int, float)) and not isinstance(runs[0].get(k), bool):
+            vals = [r[k] for r in runs]
+            out[k + "_sd"] = statistics.stdev(vals) if len(vals) > 1 else 0.0
     out["reps"] = len(runs)
+    out["runs"] = runs
     return out
 
 
@@ -146,7 +153,10 @@ if __name__ == "__main__":
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--msgs", type=int, default=300)
+    ap.add_argument("--base-port", type=int, default=1883,
+                    help="broker port; the proxy uses base+1")
     a = ap.parse_args()
+    BROKER_PORT, PROXY_PORT = a.base_port, a.base_port + 1
     if a.quick:
         a.reps, a.msgs = 1, 100
     asyncio.run(main(a.reps, a.msgs, a.quick))
