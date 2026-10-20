@@ -53,7 +53,9 @@ class E2E(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(late, [("sensor/r2/temp", True)])
 
     async def test_qos1_survives_loss_qos0_does_not(self):
-        server, _ = await start_proxy(0.3, port=PROXY, broker_port=BROKER)
+        # 10% loss: a QoS 1 message is truly lost only if all 6 copies on one hop are
+        # dropped (0.1**6), so this test is reliable. Higher rates made it flaky.
+        server, _ = await start_proxy(0.1, port=PROXY, broker_port=BROKER)
         try:
             s0, s1 = Client(), Client()
             await s0.connect("127.0.0.1", PROXY, "s0")
@@ -68,7 +70,7 @@ class E2E(unittest.IsolatedAsyncioTestCase):
                                      pub.publish("q1/x", str(i), qos=1))
             await asyncio.sleep(2)
             self.assertEqual(s1.received, n)       # QoS 1: everything arrives, exactly once
-            self.assertLess(s0.received, n)        # QoS 0: some lost at 30% loss
+            self.assertLess(s0.received, n)        # QoS 0: some lost at 10% loss
         finally:
             server.close()
 
