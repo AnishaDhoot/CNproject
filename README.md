@@ -11,6 +11,7 @@ Python 3.10+, asyncio, plain TCP. Only extra dependency: `matplotlib` (graphs).
 | `benchmark.py` | Runs all experiments, writes `results.json` |
 | `plots.py` | Makes PNG graphs in `graphs/` |
 | `demo.py` | Scripted demo for the presentation |
+| `demo_web.py`, `web/` | Browser demo ("Loss bench"): runs the real broker and proxy and shows delivery under loss live |
 | `tests/` | Unit tests (wildcards) and end-to-end tests (QoS 1 under loss) |
 
 ## Run
@@ -21,6 +22,7 @@ python proxy.py --loss 0.2                # port 1884 -> broker, 20% loss
 python client.py sub "sensor/+/temp" --qos 1 --port 1884
 python client.py pub sensor/room1/temp 23.5 --qos 1 --port 1884
 python demo.py                            # self-contained demo
+python demo_web.py                        # browser demo at http://127.0.0.1:8765
 python benchmark.py                       # ~10 min; use --quick for a short run
 python plots.py
 python -m unittest discover -s tests

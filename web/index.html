@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loss bench: pub/sub over TCP</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='6' height='6' fill='%230B7A5E'/%3E%3Crect x='9' y='1' width='6' height='6' fill='none' stroke='%23C93A21' stroke-width='1.5'/%3E%3Crect x='1' y='9' width='6' height='6' fill='%230B7A5E'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23B77600'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <div class="mark">Loss bench</div>
+  <div class="meta" id="status">connecting to the broker...</div>
+</header>
+<p class="lede">A small publish-subscribe system written for the Computer Networks lab. Everything on this page runs against the real broker on this machine. The proxy really drops messages, and the counters are read from the broker.</p>
+
+<!-- 01 -->
+<section class="sec" aria-labelledby="h1">
+  <div class="idx">01</div>
+  <div>
+    <h2 id="h1">Topic filters</h2>
+    <p class="sub">A subscriber gives a filter, a publisher gives a topic. <code>+</code> stands for one level, <code>#</code> for everything below. Send a test message and see whether the broker really delivers it.</p>
+    <form class="row" id="f-topic" autocomplete="off">
+      <div class="grow"><label class="k" for="filter">Subscriber filter</label><input class="line" id="filter" value="sensor/+/temp" spellcheck="false"></div>
+      <div class="grow"><label class="k" for="topic">Published topic</label><input class="line" id="topic" value="sensor/room1/temp" spellcheck="false"></div>
+      <button class="btn solid" type="submit">Send</button>
+    </form>
+    <div class="presets"><span class="k">Try topic</span>
+      <button class="link" data-topic="sensor/room1/temp">sensor/room1/temp</button>
+      <button class="link" data-topic="sensor/room1/humidity">sensor/room1/humidity</button>
+      <button class="link" data-topic="sensor/a/b/temp">sensor/a/b/temp</button>
+      <button class="link" data-topic="sensor">sensor</button>
+    </div>
+    <div class="presets"><span class="k">Try filter</span>
+      <button class="link" data-filter="sensor/+/temp">sensor/+/temp</button>
+      <button class="link" data-filter="sensor/#">sensor/#</button>
+      <button class="link" data-filter="#">#</button>
+    </div>
+    <div class="read" aria-live="polite">
+      <div><span class="k">Matcher says</span><div class="big" id="r-match">-</div><div class="note" id="r-match-n">&nbsp;</div></div>
+      <div><span class="k">Broker did</span><div class="big" id="r-deliv">-</div><div class="note" id="r-deliv-n">&nbsp;</div></div>
+    </div>
+    <ul class="log" id="t-log"></ul>
+  </div>
+</section>
+
+<!-- 02 -->
+<section class="sec" aria-labelledby="h2">
+  <div class="idx">02</div>
+  <div>
+    <h2 id="h2">Retained messages</h2>
+    <p class="sub">The broker can keep the last message on a topic. Store one, then connect a brand-new subscriber and see what it gets before anyone publishes again.</p>
+    <div class="cols">
+      <div>
+        <span class="k">A. Store</span>
+        <div class="row">
+          <div class="grow"><label class="k" for="rt">Topic</label><input class="line" id="rt" value="sensor/room2/temp" spellcheck="false"></div>
+          <div class="grow"><label class="k" for="rp">Payload</label><input class="line" id="rp" value="19.0" spellcheck="false"></div>
+        </div>
+        <div class="actions"><button class="btn solid" id="r-store">Publish retained</button><button class="link" id="r-clear">clear it (empty payload)</button></div>
+        <div class="note" id="r-store-n" aria-live="polite">&nbsp;</div>
+      </div>
+      <div>
+        <span class="k">B. Join late</span>
+        <div class="row"><div class="grow"><label class="k" for="rf">New subscriber filter</label><input class="line" id="rf" value="sensor/#" spellcheck="false"></div></div>
+        <div class="actions"><button class="btn solid" id="r-join">Connect new subscriber</button></div>
+        <ul class="msgs" id="r-msgs" aria-live="polite"><li class="empty">nothing received yet</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 -->
+<section class="sec" aria-labelledby="h3">
+  <div class="idx">03</div>
+  <div>
+    <h2 id="h3">Delivery under loss</h2>
+    <p class="sub">One publisher sends the same numbered messages two ways. The first subscriber listens at QoS 0, the second at QoS 1. The proxy between them throws away publishes and acknowledgements at the rate you choose.</p>
+
+    <div class="controls">
+      <div>
+        <span class="k">Messages dropped by the proxy</span>
+        <div class="lossnum"><span id="loss-n">20</span><small>%</small></div>
+        <input type="range" id="loss" min="0" max="40" step="1" value="20" aria-label="Loss rate in percent">
+        <div class="ticks"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span></div>
+      </div>
+      <div>
+        <span class="k">Messages to send</span>
+        <div class="seg" id="count" role="group" aria-label="Number of messages">
+          <button data-n="50">50</button><button data-n="100" class="on">100</button><button data-n="200">200</button>
+        </div>
+      </div>
+      <div class="actions" style="margin:0">
+        <button class="btn solid" id="run">Run</button>
+        <button class="link" id="reset">reset broker counters</button>
+      </div>
+    </div>
+
+    <div class="wire" aria-hidden="true">
+      <div class="node"><b>Publisher</b><span>one connection</span></div><div class="span"></div>
+      <div class="node proxy" id="proxy"><b>Proxy</b><span>loss <span id="w-loss">20</span>%, dropped <span class="n" id="w-drop">0</span></span></div><div class="span"></div>
+      <div class="node"><b>Broker</b><span>port <span id="w-bp">-</span></span></div><div class="span"></div>
+      <div class="node"><b>Subscribers</b><span>QoS 0 and QoS 1</span></div>
+    </div>
+
+    <div class="tapes">
+      <div class="tape">
+        <h3>QoS 0 subscriber</h3><p>Sent once, never checked.</p>
+        <div class="cells" id="tape0"></div>
+        <div class="nums">
+          <div><b id="a0">0</b><span>Arrived</span></div>
+          <div><b id="l0">-</b><span>Mean latency, ms</span></div>
+        </div>
+      </div>
+      <div class="tape">
+        <h3>QoS 1 subscriber</h3><p>Acknowledged, resent every 0.2 s until it is.</p>
+        <div class="cells" id="tape1"></div>
+        <div class="nums">
+          <div><b id="a1">0</b><span>Arrived</span></div>
+          <div><b id="l1">-</b><span>Mean latency, ms</span></div>
+          <div><b id="d1">0</b><span>Duplicates filtered</span></div>
+          <div><b id="p1">0</b><span>Publisher retries</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><i></i>sent</span><span><i class="ok"></i>arrived first time</span><span><i class="late"></i>arrived after a retry</span><span><i class="lost"></i>never arrived</span>
+    </div>
+
+    <div class="panel">
+      <span class="k">Dropped by the proxy, as it happens</span>
+      <ul class="drops" id="drops" aria-live="off"><li class="sys"><span></span><span></span><span>nothing yet. press Run.</span></li></ul>
+    </div>
+
+    <div class="panel" id="result" hidden>
+      <span class="k">This run</span>
+      <table>
+        <thead><tr><th></th><th>QoS 0</th><th>QoS 1</th></tr></thead>
+        <tbody id="res-body"></tbody>
+      </table>
+      <p class="foot" id="res-foot"></p>
+    </div>
+  </div>
+</section>
+
+<footer>python demo_web.py &nbsp;|&nbsp; broker, proxy and client library are the project's own code. Frames are a 4-byte length plus JSON.</footer>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

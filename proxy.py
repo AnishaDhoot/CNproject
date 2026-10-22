@@ -16,14 +16,20 @@ import struct
 DROPPABLE = {"PUBLISH", "PUBACK"}   # never drop CONNECT/SUBSCRIBE/STATS/acks used in setup
 
 
-async def pipe(reader, writer, loss, delay, counters):
+async def pipe(reader, writer, loss, delay, counters, direction="", on_drop=None):
+    """Copy frames one way. `loss` is a probability or a function returning one,
+    so a caller can change the rate while the proxy runs."""
     try:
         while True:
             hdr = await reader.readexactly(4)
             (n,) = struct.unpack(">I", hdr)
             body = await reader.readexactly(n)
-            if json.loads(body)["type"] in DROPPABLE and random.random() < loss:
+            msg = json.loads(body)
+            p = loss() if callable(loss) else loss
+            if msg["type"] in DROPPABLE and random.random() < p:
                 counters["dropped"] += 1
+                if on_drop:
+                    on_drop(direction, msg)
                 continue
             if delay:
                 await asyncio.sleep(delay)
@@ -35,7 +41,7 @@ async def pipe(reader, writer, loss, delay, counters):
         writer.close()
 
 
-async def start_proxy(loss, delay=0.0, port=1884, broker_host="127.0.0.1", broker_port=1883):
+async def start_proxy(loss, delay=0.0, port=1884, broker_host="127.0.0.1", broker_port=1883, on_drop=None):
     counters = {"dropped": 0}
 
     async def handle(creader, cwriter):
@@ -44,8 +50,8 @@ async def start_proxy(loss, delay=0.0, port=1884, broker_host="127.0.0.1", broke
         except OSError:
             cwriter.close()
             return
-        await asyncio.gather(pipe(creader, bwriter, loss, delay, counters),
-                             pipe(breader, cwriter, loss, delay, counters))
+        await asyncio.gather(pipe(creader, bwriter, loss, delay, counters, "c2b", on_drop),
+                             pipe(breader, cwriter, loss, delay, counters, "b2c", on_drop))
 
     server = await asyncio.start_server(handle, "0.0.0.0", port)
     return server, counters
